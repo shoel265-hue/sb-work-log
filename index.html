@@ -623,7 +623,7 @@
             dept: document.getElementById("dept-select").value,
             day: document.getElementById("day-select").value,
             weather: document.getElementById("weather-select").value,
-            logContent: document.getElementById("work-log-content").value, // 💡 순수 텍스트만 저장
+            logContent: document.getElementById("work-log-content").value,
             imgDamdang: document.getElementById("img-damdang").getAttribute('src') || "",
             imgTeam: document.getElementById("img-team").getAttribute('src') || "",
             imgSojang: document.getElementById("img-sojang").getAttribute('src') || "",
@@ -673,20 +673,44 @@
         });
     }
 
-    // ★ 소방팀 전용 데이터 불러오기 함수 (안전하게 순수 텍스트만 파싱) ★
+    // ★ 소방팀 전용 데이터 불러오기 함수 (날짜 변경 시 입력폼 및 근무자 초기화 방어 적용) ★
     function loadSavedDataFromServer() {
         const workDate = document.getElementById("work-date").value;
         if (!workDate) return;
 
+        // 💡 1. 날짜 변경/조회 시 기존 근무자 입력폼 전체 초기화 (1행만 기본값, 나머지 빈칸)
+        const workerRows = document.querySelectorAll(".worker-row");
+        workerRows.forEach((row, idx) => {
+            row.querySelector(".w-name").value = (idx === 0) ? "이욱호" : "";
+            row.querySelector(".w-jugan").value = (idx === 0) ? "주간" : "";
+            row.querySelector(".w-yagan").value = "";
+            row.querySelector(".w-humu").value = "";
+            row.querySelector(".w-gita").value = "";
+        });
+
+        // 2. 업무 내용 텍스트 초기화
         const textarea = document.getElementById("work-log-content");
         if (textarea) {
             textarea.value = "";
             autoResizeTextarea(textarea);
         }
+
+        // 3. 사진 초기화
         for (let i = 1; i <= 3; i++) {
             deletePhoto({ stopPropagation: () => {} }, i);
         }
 
+        // 4. 결재란(서명) 초기화
+        ['img-damdang', 'img-team', 'img-sojang'].forEach((imgId, idx) => {
+            const btnIds = ['del-sign-damdang', 'del-sign-team', 'del-sign-sojang'];
+            const img = document.getElementById(imgId);
+            const delBtn = document.getElementById(btnIds[idx]);
+            img.removeAttribute('src');
+            img.style.display = "none";
+            delBtn.classList.remove('has-image');
+        });
+
+        // 5. 서버로부터 데이터 조회
         fetch(`${GAS_WEB_APP_URL}?workDate=${workDate}`)
         .then(res => res.json())
         .then(res => {
@@ -706,7 +730,6 @@
                     cleanContent = data.workLogContent;
                 }
 
-                // 💡 혹시라도 시트에 남아있는 JSON 데이터나 꼬인 데이터가 들어와도 순수 텍스트만 골라내도록 방어 코드 추가
                 if (typeof cleanContent === 'string' && cleanContent.startsWith('{')) {
                     try {
                         const parsed = JSON.parse(cleanContent);
@@ -715,7 +738,7 @@
                         } else {
                             cleanContent = "";
                         }
-                    } catch(e) { /* 일반 텍스트인 경우 그대로 사용 */ }
+                    } catch(e) { }
                 }
 
                 document.getElementById("work-log-content").value = cleanContent;
